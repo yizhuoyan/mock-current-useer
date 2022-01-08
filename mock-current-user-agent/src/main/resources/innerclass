@@ -1,0 +1,110 @@
+return new java.util.function.Function() {
+        private  final ThreadLocal<Object> THREAD_CACHE = new ThreadLocal<>();
+
+        public Object apply(Object type) {
+            System.out.println("mocked-user");
+            Object o = THREAD_CACHE.get();
+            if(o==null){
+                try {
+                    THREAD_CACHE.set(o = create((Class) type));
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
+            return o;
+        }
+
+        private Object create(Class type)throws Exception{
+            //获取当前请求对象
+            javax.servlet.http.HttpServletRequest request=loadCurrentHttpServletRequest();
+            //当前用户id必须设置，否则不模拟
+            String currentUserId = loadValueFormRequest(request, "_id", null);
+            if (currentUserId == null) {
+                return null;
+            }
+            //创建模拟用户对象
+            Object target = type.newInstance();
+            for (java.lang.reflect.Field declaredField : type.getDeclaredFields()) {
+                try{
+                    //依次设置每个字段
+                    setFieldValue(declaredField,target,request);
+                }catch (Exception e){
+                    //异常隔离
+                    e.printStackTrace();
+                }
+            }
+            return target;
+        }
+        private javax.servlet.http.HttpServletRequest loadCurrentHttpServletRequest() {
+            Object requestAttributes = org.springframework.web.context.request.RequestContextHolder.currentRequestAttributes();
+            if (requestAttributes instanceof org.springframework.web.context.request.ServletRequestAttributes) {
+                return ((org.springframework.web.context.request.ServletRequestAttributes) requestAttributes).getRequest();
+            }
+            throw new RuntimeException("no HttpServletRequest");
+        }
+        /**
+         * 设置某个字段的值
+         */
+        private  void setFieldValue(java.lang.reflect.Field declaredField, Object devUserInfo, javax.servlet.http.HttpServletRequest request)throws Exception{
+            String fieldName=declaredField.getName();
+            declaredField.setAccessible(true);
+            Class<?> fieldType = declaredField.getType();
+            if (String.class.isAssignableFrom(fieldType)) {
+                String fieldValue = loadValueFormRequest(request,fieldName, declaredField.getName());
+                declaredField.set(devUserInfo, fieldValue);
+            } else if (Integer.class.isAssignableFrom(fieldType)) {
+                String fieldValue = loadValueFormRequest(request, fieldName, "0");
+                declaredField.set(devUserInfo, Integer.parseInt(fieldValue));
+            } else if (Long.class.isAssignableFrom(fieldType)) {
+                String fieldValue = loadValueFormRequest(request, fieldName, "0");
+                declaredField.set(devUserInfo, Long.parseLong(fieldValue));
+            } else if (Boolean.class.isAssignableFrom(fieldType)) {
+                String fieldValue = loadValueFormRequest(request, fieldName, "false");
+                declaredField.set(devUserInfo, Boolean.parseBoolean(fieldValue));
+            } else if (java.time.LocalDateTime.class.isAssignableFrom(fieldType)) {
+                String fieldValue = loadValueFormRequest(request, fieldName, null);
+                if (fieldValue == null) {
+                    declaredField.set(devUserInfo, java.time.LocalDateTime.now());
+                } else {
+                    declaredField.set(devUserInfo, java.time.LocalDateTime.parse(fieldValue));
+                }
+            } else if (java.time.LocalDate.class.isAssignableFrom(fieldType)) {
+                String fieldValue = loadValueFormRequest(request, fieldName, null);
+                if (fieldValue == null) {
+                    declaredField.set(devUserInfo, java.time.LocalDate.now());
+                } else {
+                    declaredField.set(devUserInfo, java.time.LocalDate.parse(fieldValue));
+                }
+            } else if (fieldType.isEnum()) { //枚举类型
+                String value = loadValueFormRequest(request, fieldName, null);
+                Object[] enumConstants = fieldType.getEnumConstants();
+                if (value == null) {
+                    //默认设置第一个
+                    declaredField.set(devUserInfo, enumConstants[0]);
+                } else {
+                    //否则通过枚举名称不区分大小写设置
+                    for (Object enumConstant : enumConstants) {
+                        if (((Enum) enumConstant).name().equalsIgnoreCase(value)) {
+                            declaredField.set(devUserInfo, enumConstant);
+                        }
+                    }
+                }
+            }
+        }
+
+        private String loadValueFormRequest(javax.servlet.http.HttpServletRequest request, String name, String defaultValue) {
+            if (!name.startsWith("_")) {
+                name = "_" + name;
+            }
+            String currentUserId = request.getParameter(name);
+            if (currentUserId == null || (currentUserId = currentUserId.trim()).length() == 0) {
+                //尝试请求头
+                currentUserId = request.getHeader(name);
+            }
+            if (currentUserId == null || (currentUserId = currentUserId.trim()).length() == 0) {
+                return defaultValue;
+            }
+            return currentUserId;
+        }
+
+    };

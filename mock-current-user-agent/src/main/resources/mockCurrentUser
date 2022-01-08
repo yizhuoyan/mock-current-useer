@@ -1,0 +1,82 @@
+{
+System.out.println("mocked-user");
+Object target = THREAD_LOCAL_MOCK_CURRENT_USER.get();
+if(target!=null){
+    return target;
+}
+try {
+    //获取当前请求对象
+    javax.servlet.http.HttpServletRequest request=null;
+    Object requestAttributes = org.springframework.web.context.request.RequestContextHolder.currentRequestAttributes();
+    if (requestAttributes instanceof org.springframework.web.context.request.ServletRequestAttributes) {
+        request=((org.springframework.web.context.request.ServletRequestAttributes) requestAttributes).getRequest();
+    }
+    //当前用户id必须设置，否则不模拟
+    String currentUserId = loadValueFormRequest(request, "_id", null);
+    if (currentUserId == null) {
+        return null;
+    }
+     //创建模拟用户对象
+    target = ((Class)$1).newInstance();
+   java.lang.reflect.Field[]  declaredFields=target.getClass().getDeclaredFields();
+
+   for(int i=declaredFields.length;i-->0;){
+     java.lang.reflect.Field declaredField=declaredFields[i];
+        try{
+            String fieldName=declaredField.getName();
+            //依次设置每个字段
+            declaredField.setAccessible(true);
+            Class fieldType = declaredField.getType();
+            if (String.class.isAssignableFrom(fieldType)) {
+                String fieldValue = loadValueFormRequest(request,fieldName, declaredField.getName());
+                declaredField.set(target, fieldValue);
+            } else if (Integer.class.isAssignableFrom(fieldType)) {
+                String fieldValue = loadValueFormRequest(request, fieldName, "0");
+                declaredField.set(target, Integer.valueOf(Integer.parseInt(fieldValue)));
+            } else if (Long.class.isAssignableFrom(fieldType)) {
+                String fieldValue = loadValueFormRequest(request, fieldName, "0");
+                declaredField.set(target, Long.valueOf(Long.parseLong(fieldValue)));
+            } else if (Boolean.class.isAssignableFrom(fieldType)) {
+                String fieldValue = loadValueFormRequest(request, fieldName, "false");
+                declaredField.set(target, Boolean.valueOf(Boolean.parseBoolean(fieldValue)));
+            } else if (java.time.LocalDateTime.class.isAssignableFrom(fieldType)) {
+                String fieldValue = loadValueFormRequest(request, fieldName, null);
+                if (fieldValue == null) {
+                    declaredField.set(target, java.time.LocalDateTime.now());
+                } else {
+                    declaredField.set(target, java.time.LocalDateTime.parse(fieldValue));
+                }
+            } else if (java.time.LocalDate.class.isAssignableFrom(fieldType)) {
+                String fieldValue = loadValueFormRequest(request, fieldName, null);
+                if (fieldValue == null) {
+                    declaredField.set(target, java.time.LocalDate.now());
+                } else {
+                    declaredField.set(target, java.time.LocalDate.parse(fieldValue));
+                }
+            } else if (fieldType.isEnum()) { //枚举类型
+                String value = loadValueFormRequest(request, fieldName, null);
+                Object[] enumConstants = fieldType.getEnumConstants();
+                if (value == null) {
+                    //默认设置第一个
+                    declaredField.set(target, enumConstants[0]);
+                } else {
+                    //否则通过枚举名称不区分大小写设置
+                    for(int j=enumConstants.length;j-->0;){
+                        Object enumConstant=enumConstants[j];
+                        if (((Enum) enumConstant).name().equalsIgnoreCase(value)) {
+                            declaredField.set(target, enumConstant);
+                        }
+                    }
+                }
+            }
+        }catch (Exception e){
+            //异常隔离
+            e.printStackTrace();
+        }
+   }
+    THREAD_LOCAL_MOCK_CURRENT_USER.set(target);
+}catch (Exception e){
+    e.printStackTrace();
+}
+return target;
+}
