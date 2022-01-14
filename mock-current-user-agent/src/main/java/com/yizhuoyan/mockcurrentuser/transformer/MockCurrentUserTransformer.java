@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.logging.Logger;
 
 /**
  * <p>
@@ -21,18 +22,19 @@ import java.util.function.Function;
  */
 
 public class MockCurrentUserTransformer implements ClassFileTransformer {
+    private final static Logger LOGGER=Logger.getLogger(MockCurrentUserTransformer.class.getName());
 
-    private Map<String, Set<String>> targetClassMethodMap;
+    private final Map<String, Set<String>> targetClassMethodMap;
 
     public MockCurrentUserTransformer(Map<String, Set<String>> targetClassMethodMap) {
         this.targetClassMethodMap = targetClassMethodMap;
+        LOGGER.info("MockCurrentUserAgent will be transformed for "+targetClassMethodMap);
     }
 
     @Override
     public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
         className = className
                 .replaceAll("/", ".");
-
         if (!isTargetClass(className, loader)) {
             return null;
         }
@@ -41,7 +43,6 @@ public class MockCurrentUserTransformer implements ClassFileTransformer {
             return null;
         }
         try {
-            System.out.println(className);
             return this.doTransformForClass(className, methods);
         } catch (Exception e) {
             e.printStackTrace();
@@ -52,8 +53,6 @@ public class MockCurrentUserTransformer implements ClassFileTransformer {
     private byte[] doTransformForClass(String targetClassName, Set<String> methods) throws Exception {
         ClassPool classPool = ClassPool.getDefault();
         CtClass cc = classPool.get(targetClassName);
-
-        addThreadLocalField(cc);
 
         addMethodLoadValueFormRequest(cc);
 
@@ -69,16 +68,11 @@ public class MockCurrentUserTransformer implements ClassFileTransformer {
         }
     }
 
-    private void addThreadLocalField(CtClass cc) throws Exception {
-        ClassPool classPool = ClassPool.getDefault();
-        CtField innerClassField = new CtField(classPool.get(ThreadLocal.class.getName()), "THREAD_LOCAL_MOCK_CURRENT_USER", cc);
-        innerClassField.setModifiers(Modifier.STATIC | Modifier.PRIVATE | Modifier.FINAL);
-        cc.addField(innerClassField, "new ThreadLocal();");
-    }
+
 
     private void addMethodLoadValueFormRequest(CtClass cc) throws Exception {
         ClassPool classPool = ClassPool.getDefault();
-        CtMethod ctMethod = new CtMethod(classPool.get(String.class.getName()), "loadValueFormRequest", new CtClass[]{
+        CtMethod ctMethod = new CtMethod(classPool.get(String.class.getName()), "__loadValueFormRequest", new CtClass[]{
                 classPool.get(Object.class.getName()), classPool.get(String.class.getName()), classPool.get(String.class.getName())
         }, cc);
         ctMethod.setModifiers(Modifier.STATIC | Modifier.PRIVATE);
@@ -89,7 +83,7 @@ public class MockCurrentUserTransformer implements ClassFileTransformer {
 
     private void addMethodMockCurrentUser(CtClass cc) throws Exception {
         ClassPool classPool = ClassPool.getDefault();
-        CtMethod ctMethod = new CtMethod(classPool.get(Object.class.getName()), "mockCurrentUser", new CtClass[]{
+        CtMethod ctMethod = new CtMethod(classPool.get(Object.class.getName()), "__mockCurrentUser", new CtClass[]{
                 classPool.get(Object.class.getName())
         }, cc);
         ctMethod.setModifiers(Modifier.STATIC | Modifier.PRIVATE);
@@ -103,9 +97,9 @@ public class MockCurrentUserTransformer implements ClassFileTransformer {
         CtMethod m = cc.getDeclaredMethod(method);
         CtClass returnType = m.getReturnType();
         StringBuilder beforeCode = new StringBuilder();
-        beforeCode.append("Object mock= mockCurrentUser(").append(returnType.getName()).append(".class);\n");
-        beforeCode.append("if(mock!=null){")
-                .append("return (").append(returnType.getName()).append(")mock;}");
+        beforeCode.append("Object __mock__= __mockCurrentUser(").append(returnType.getName()).append(".class);\n");
+        beforeCode.append("if(__mock__!=null){")
+                .append("return (").append(returnType.getName()).append(")__mock__;}");
         m.insertBefore(beforeCode.toString());
     }
 

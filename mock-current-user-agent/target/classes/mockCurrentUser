@@ -1,18 +1,19 @@
 {
 System.out.println("mocked-user");
-Object target = THREAD_LOCAL_MOCK_CURRENT_USER.get();
-if(target!=null){
-    return target;
-}
+Object target = null;
 try {
     //获取当前请求对象
-    javax.servlet.http.HttpServletRequest request=null;
     Object requestAttributes = org.springframework.web.context.request.RequestContextHolder.currentRequestAttributes();
+    javax.servlet.http.HttpServletRequest request=null;
     if (requestAttributes instanceof org.springframework.web.context.request.ServletRequestAttributes) {
         request=((org.springframework.web.context.request.ServletRequestAttributes) requestAttributes).getRequest();
+        target=request.getAttribute("--mock-current-user--");
+        if(target!=null){
+            return target;
+        }
     }
     //当前用户id必须设置，否则不模拟
-    String currentUserId = loadValueFormRequest(request, "_id", null);
+    String currentUserId = __loadValueFormRequest(request, "_id", null);
     if (currentUserId == null) {
         return null;
     }
@@ -28,33 +29,33 @@ try {
             declaredField.setAccessible(true);
             Class fieldType = declaredField.getType();
             if (String.class.isAssignableFrom(fieldType)) {
-                String fieldValue = loadValueFormRequest(request,fieldName, declaredField.getName());
+                String fieldValue = __loadValueFormRequest(request,fieldName, declaredField.getName());
                 declaredField.set(target, fieldValue);
             } else if (Integer.class.isAssignableFrom(fieldType)) {
-                String fieldValue = loadValueFormRequest(request, fieldName, "0");
+                String fieldValue = __loadValueFormRequest(request, fieldName, "0");
                 declaredField.set(target, Integer.valueOf(Integer.parseInt(fieldValue)));
             } else if (Long.class.isAssignableFrom(fieldType)) {
-                String fieldValue = loadValueFormRequest(request, fieldName, "0");
+                String fieldValue = __loadValueFormRequest(request, fieldName, "0");
                 declaredField.set(target, Long.valueOf(Long.parseLong(fieldValue)));
             } else if (Boolean.class.isAssignableFrom(fieldType)) {
-                String fieldValue = loadValueFormRequest(request, fieldName, "false");
+                String fieldValue = __loadValueFormRequest(request, fieldName, "false");
                 declaredField.set(target, Boolean.valueOf(Boolean.parseBoolean(fieldValue)));
             } else if (java.time.LocalDateTime.class.isAssignableFrom(fieldType)) {
-                String fieldValue = loadValueFormRequest(request, fieldName, null);
+                String fieldValue = __loadValueFormRequest(request, fieldName, null);
                 if (fieldValue == null) {
                     declaredField.set(target, java.time.LocalDateTime.now());
                 } else {
                     declaredField.set(target, java.time.LocalDateTime.parse(fieldValue));
                 }
             } else if (java.time.LocalDate.class.isAssignableFrom(fieldType)) {
-                String fieldValue = loadValueFormRequest(request, fieldName, null);
+                String fieldValue = __loadValueFormRequest(request, fieldName, null);
                 if (fieldValue == null) {
                     declaredField.set(target, java.time.LocalDate.now());
                 } else {
                     declaredField.set(target, java.time.LocalDate.parse(fieldValue));
                 }
             } else if (fieldType.isEnum()) { //枚举类型
-                String value = loadValueFormRequest(request, fieldName, null);
+                String value = __loadValueFormRequest(request, fieldName, null);
                 Object[] enumConstants = fieldType.getEnumConstants();
                 if (value == null) {
                     //默认设置第一个
@@ -74,7 +75,7 @@ try {
             e.printStackTrace();
         }
    }
-    THREAD_LOCAL_MOCK_CURRENT_USER.set(target);
+    request.setAttribute("--mock-current-user--",target);
 }catch (Exception e){
     e.printStackTrace();
 }

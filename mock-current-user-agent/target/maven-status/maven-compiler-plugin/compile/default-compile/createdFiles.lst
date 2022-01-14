@@ -1,5 +1,5 @@
+com\yizhuoyan\mockcurrentuser\MockCurrentUserAgent.class
+com\yizhuoyan\mockcurrentuser\support\MockCurrentUserCode.class
 com\yizhuoyan\mockcurrentuser\config\Configuration.class
 com\yizhuoyan\mockcurrentuser\util\XUtil.class
 com\yizhuoyan\mockcurrentuser\transformer\MockCurrentUserTransformer.class
-com\yizhuoyan\mockcurrentuser\MockCurrentUserAgent.class
-com\yizhuoyan\mockcurrentuser\support\MockCurrentUserCode.class
